@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Elemental Falling Sand</title>
+    <link rel="stylesheet" href="https://jsdelivr.net">
+    <style>
+        body { background-color: #1e1e1e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .terminal-container { width: 660px; box-shadow: 0 20px 50px rgba(0,0,0,.5); border-radius: 8px; overflow: hidden; background: #000; }
+        .terminal-header { background-color: #333; padding: 10px; display: flex; align-items: center; position: relative; }
+        .btn { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; display: inline-block; }
+        .close { background-color: #ff5f56; } .minimize { background-color: #ffbd2e; } .maximize { background-color: #27c93f; }
+        .title { color: #bbb; font-size: 13px; position: absolute; width: 100%; text-align: center; left: 0; pointer-events: none; }
+        #terminal { background-color: #000; padding: 10px; }
+        .toolbar { display: flex; background: #222; padding: 8px; justify-content: center; gap: 5px; }
+        .tool-btn { border: none; padding: 5px 12px; font-weight: 700; cursor: pointer; border-radius: 4px; color: #fff; background: #444; }
+        .tool-btn.active { outline: 2px solid #fff; }
+    </style>
+</head>
+<body>
+    <div class="terminal-container">
+        <div class="terminal-header">
+            <span class="btn close"></span><span class="btn minimize"></span><span class="btn maximize"></span>
+            <span class="title">bash — advanced_matrix.sh</span>
+        </div>
+        <div class="toolbar" id="tools">
+            <button class="tool-btn active" data-type="1" style="background:#d4af37">Sand</button>
+            <button class="tool-btn" data-type="2" style="background:#0077be">Water</button>
+            <button class="tool-btn" data-type="3" style="background:#ff4500">Fire</button>
+            <button class="tool-btn" data-type="4" style="background:#708090">Stone</button>
+            <button class="tool-btn" data-type="5" style="background:#8b5a2b">Wood</button>
+            <button class="tool-btn" data-type="0" style="background:#111">Eraser</button>
+        </div>
+        <div id="terminal"></div>
+    </div>
+    <script src="https://jsdelivr.net"></script>
+    <script>
+        const COLS = 60, ROWS = 30;
+        const term = new Terminal({ cols: COLS, rows: ROWS, cursorBlink: false, fontSize: 14, fontFamily: "monospace", theme: { background: "#000000" } });
+        term.open(document.getElementById("terminal"));
+        let grid = Array(ROWS).fill().map(() => Array(COLS).fill(0));
+        let activeTool = 1, isMouseDown = false;
+        const PALETTE = { 0: " ", 1: "\x1b[33m█\x1b[0m", 2: "\x1b[34m█\x1b[0m", 3: "\x1b[31m█\x1b[0m", 4: "\x1b[90m█\x1b[0m", 5: "\x1b[38;5;94m█\x1b[0m" };
+
+        document.getElementById("tools").addEventListener("click", e => {
+            if (e.target.classList.contains("tool-btn")) {
+                document.querySelectorAll(".tool-btn").forEach(t => t.classList.remove("active"));
+                e.target.classList.add("active");
+                activeTool = parseInt(e.target.dataset.type);
+            }
+        });
+
+        function updatePhysics() {
+            let nextGrid = grid.map(e => [...e]);
+            for (let t = ROWS - 1; t >= 0; t--) {
+                for (let a = 0; a < COLS; a++) {
+                    let n = grid[t][a];
+                    if (1 === n) {
+                        if (t + 1 < ROWS && (0 === grid[t + 1][a] || 2 === grid[t + 1][a])) {
+                            nextGrid[t + 1][a] = 1; nextGrid[t][a] = 2 === grid[t + 1][a] ? 2 : 0;
+                        } else if (t + 1 < ROWS) {
+                            let r = Math.random() < .5 ? 1 : -1;
+                            if (a + r >= 0 && a + r < COLS && (0 === grid[t + 1][a + r] || 2 === grid[t + 1][a + r])) {
+                                nextGrid[t + 1][a + r] = 1; nextGrid[t][a] = 2 === grid[t + 1][a + r] ? 2 : 0;
+                            }
+                        }
+                    } else if (2 === n) {
+                        if (t + 1 < ROWS && 0 === grid[t + 1][a]) {
+                            nextGrid[t + 1][a] = 2; nextGrid[t][a] = 0;
+                        } else {
+                            let o = Math.random() < .5 ? 1 : -1;
+                            if (t + 1 < ROWS && 0 === grid[t + 1][a + o]) {
+                                nextGrid[t + 1][a + o] = 2; nextGrid[t][a] = 0;
+                            } else if (a + o >= 0 && a + o < COLS && 0 === grid[t][a + o]) {
+                                nextGrid[t][a + o] = 2; nextGrid[t][a] = 0;
+                            }
+                        }
+                    } else if (3 === n) {
+                        if (Math.random() < .2) { nextGrid[t][a] = 0; continue; }
+                        let l = t - 1, i = a + (Math.random() < .5 ? 1 : -1);
+                        if (l >= 0 && i >= 0 && i < COLS) {
+                            if (5 === grid[l][i]) nextGrid[l][i] = 3;
+                            if (2 === grid[l][i]) { nextGrid[t][a] = 0; nextGrid[l][i] = 0; }
+                        }
+                        for (let s of [-1, 0, 1]) {
+                            for (let c of [-1, 0, 1]) {
+                                if (t + s >= 0 && t + s < ROWS && a + c >= 0 && a + c < COLS && 5 === grid[t + s][a + c]) nextGrid[t + s][a + c] = 3;
+                            }
+                        }
+                    }
+                }
+            }
+            grid = nextGrid;
+        }
+
+        function render() {
+            let e = "\x1b[H";
+            for (let t = 0; t < ROWS; t++) {
+                for (let a = 0; a < COLS; a++) e += PALETTE[grid[t][a]];
+                if (t < ROWS - 1) e += "\r\n";
+            }
+            term.write(e);
+        }
+
+        function addElement(e) {
+            const t = document.getElementById("terminal").getBoundingClientRect();
+            const a = Math.floor((e.clientX - t.left) / t.width * COLS);
+            const n = Math.floor((e.clientY - t.top) / t.height * ROWS);
+            if (n >= 0 && n < ROWS && a >= 0 && a < COLS) grid[n][a] = activeTool;
+        }
+
+        window.addEventListener("mousedown", e => { isMouseDown = true; addElement(e); });
+        window.addEventListener("mouseup", () => isMouseDown = false);
+        window.addEventListener("mousemove", e => { if (isMouseDown) addElement(e); });
+        setInterval(() => { updatePhysics(); render(); }, 1000 / 30);
+    </script>
+</body>
+</html>
